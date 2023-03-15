@@ -124,7 +124,7 @@ main(int argc, char **argv)
                 delta += agregated_delta[i][0];
             }
             delta /= (NUM_OBJECTS_PER_DPU * N_DPUS);
-            std::cout << delta << std::endl;
+            // std::cout << delta << std::endl;
 
         } while ((loop++ < 500) && (delta > THRESHOLD));
         // } while (0);
@@ -144,7 +144,10 @@ main(int argc, char **argv)
         total_time +=
             std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
 
-        std::cout << "11" << "\t" << N_DPUS << "\t" << loop << "\t"
+        std::cout << "11" << "\t" 
+                  << N_DPUS << "\t" 
+                  << loop << "\t"
+                  << N_DPUS * NUM_OBJECTS_PER_DPU * loop  << "\t" 
                   << total_time << std::endl;
     }
     catch (const DpuError &e)
