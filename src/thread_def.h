@@ -3,8 +3,8 @@
 
 #include <perfcounter.h>
 
-#define R_SET_SIZE 15 /* Initial size of read sets */
-#define W_SET_SIZE 15 /* Initial size of write sets */
+#define R_SET_SIZE 17 /* Initial size of read sets */
+#define W_SET_SIZE 17 /* Initial size of write sets */
 
 typedef int BitMap;
 

@@ -26,6 +26,7 @@ BARRIER_INIT(kmeans_barr, NR_TASKLETS);
 
 // Input variables
 __mram float attributes[NUM_OBJECTS_PER_DPU * NUM_ATTRIBUTES];
+__host uint64_t init;
 __host __dma_aligned float current_cluster_centers[N_CLUSTERS * NUM_ATTRIBUTES];
 
 // Output variables
@@ -78,14 +79,22 @@ main()
 
     if (tid == 0)
     {
-        for (int i = 0; i < NUM_OBJECTS_PER_DPU; ++i)
+        if (init == 1)
         {
-            membership[i] = -1;
-        }
+            for (int i = 0; i < NUM_OBJECTS_PER_DPU; ++i)
+            {
+                membership[i] = -1;
+            }
+            init = 0;
+        }   
 
         for (int i = 0; i < N_CLUSTERS; ++i)
         {
             local_centers_len[i] = 0;
+            for (int j = 0; j < NUM_ATTRIBUTES; ++j)
+            {
+                local_cluster_centers[(i * NUM_ATTRIBUTES) + j] = 0;
+            }
         }
     }
     barrier_wait(&kmeans_barr);

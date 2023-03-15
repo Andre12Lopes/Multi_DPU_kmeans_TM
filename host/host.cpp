@@ -25,6 +25,8 @@ main(int argc, char **argv)
 
     std::vector<float> current_cluster_centers(N_CLUSTERS * NUM_ATTRIBUTES);
 
+    std::vector<std::uint64_t> init(1, 1);
+
     // OUT
     std::vector<std::vector<float>> round_cluster_centers(
         N_DPUS, std::vector<float>(N_CLUSTERS * NUM_ATTRIBUTES));
@@ -38,6 +40,8 @@ main(int argc, char **argv)
     // LOCAL
     std::vector<std::uint32_t> agregated_cluster_centers_len(N_CLUSTERS);
     double total_time = 0;
+    double comm_time = 0;
+    double delta;
     int loop;
 
     try
@@ -49,6 +53,8 @@ main(int argc, char **argv)
         generate_initial_points(attributes);
 
         system.copy("attributes", attributes);
+
+        system.copy("init", init);
 
         auto start = std::chrono::steady_clock::now();
 
@@ -112,25 +118,34 @@ main(int argc, char **argv)
                 }
             }
 
-            for (int i = 0; i < N_CLUSTERS; ++i)
+            delta = 0;
+            for (int i = 0; i < N_DPUS; ++i)
             {
-                for (int j = 0; j < NUM_ATTRIBUTES; ++j)
-                {
-                    std::cout << current_cluster_centers[(i * NUM_ATTRIBUTES) + j]
-                              << ", ";
-                }
-                std::cout << "-> " << agregated_cluster_centers_len[i] << std::endl;
+                delta += agregated_delta[i][0];
             }
-            // } while ((delta > THRESHOLD) && (loop++ < 500));
-        } while (0);
+            delta /= (NUM_OBJECTS_PER_DPU * N_DPUS);
+            std::cout << delta << std::endl;
+
+        } while ((loop++ < 500) && (delta > THRESHOLD));
+        // } while (0);
+        
+        // for (int i = 0; i < N_CLUSTERS; ++i)
+        // {
+        //     for (int j = 0; j < NUM_ATTRIBUTES; ++j)
+        //     {
+        //         std::cout << current_cluster_centers[(i * NUM_ATTRIBUTES) + j]
+        //                   << ", ";
+        //     }
+        //     std::cout << "-> " << agregated_cluster_centers_len[i] << std::endl;
+        // }
 
         auto end = std::chrono::steady_clock::now();
 
         total_time +=
             std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
 
-        // std::cout << (double)nThreads.front().front() << "\t" << N_DPUS << "\t"
-        //           << total_time << std::endl;
+        std::cout << "11" << "\t" << N_DPUS << "\t" << loop << "\t"
+                  << total_time << std::endl;
     }
     catch (const DpuError &e)
     {
