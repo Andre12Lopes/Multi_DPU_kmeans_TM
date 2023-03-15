@@ -1,21 +1,21 @@
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <assert.h>
 #include <alloc.h>
+#include <assert.h>
 #include <perfcounter.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "norec.h"
 #include "utils.h"
 
-#define FILTERHASH(a)                   ((UNS(a) >> 2) ^ (UNS(a) >> 5))
-#define FILTERBITS(a)                   (1 << (FILTERHASH(a) & 0x1F))
+#define FILTERHASH(a) ((UNS(a) >> 2) ^ (UNS(a) >> 5))
+#define FILTERBITS(a) (1 << (FILTERHASH(a) & 0x1F))
 
-enum 
+enum
 {
-  TX_ACTIVE = 1,
-  TX_COMMITTED = 2,
-  TX_ABORTED = 4
+    TX_ACTIVE = 1,
+    TX_COMMITTED = 2,
+    TX_ABORTED = 4
 };
 
 #include "thread_def.h"
@@ -24,7 +24,7 @@ volatile long *LOCK;
 
 // --------------------------------------------------------------
 
-static inline unsigned long long 
+static inline unsigned long long
 MarsagliaXORV(unsigned long long x)
 {
     if (x == 0)
@@ -39,7 +39,7 @@ MarsagliaXORV(unsigned long long x)
     return x;
 }
 
-static inline unsigned long long 
+static inline unsigned long long
 MarsagliaXOR(TYPE unsigned long long *seed)
 {
     unsigned long long x = MarsagliaXORV(*seed);
@@ -48,19 +48,19 @@ MarsagliaXOR(TYPE unsigned long long *seed)
     return x;
 }
 
-static inline unsigned long long 
+static inline unsigned long long
 TSRandom(TYPE Thread *Self)
 {
     return MarsagliaXOR(&Self->rng);
 }
 
-static inline void 
+static inline void
 backoff(TYPE Thread *Self, long attempt)
 {
     unsigned long long stall = TSRandom(Self) & 0xF;
     stall += attempt >> 2;
     stall *= 10;
-    
+
     // stall = stall << attempt;
     /* CCM: timer function may misbehave */
     volatile unsigned long long i = 0;
@@ -70,7 +70,7 @@ backoff(TYPE Thread *Self, long attempt)
     }
 }
 
-void 
+void
 TxAbort(TYPE Thread *Self)
 {
     Self->Aborts++;
@@ -89,7 +89,7 @@ TxAbort(TYPE Thread *Self)
     // ASSERT(0);
 }
 
-void 
+void
 TxInit(TYPE Thread *t, int id)
 {
     memset(t, 0, sizeof(*t)); /* Default value for most members */
@@ -107,7 +107,7 @@ TxInit(TYPE Thread *t, int id)
 // --------------------------------------------------------------
 
 static inline void
-txReset (TYPE Thread* Self)
+txReset(TYPE Thread *Self)
 {
     Self->rdSet.nb_entries = 0;
     Self->wrSet.nb_entries = 0;
@@ -117,13 +117,13 @@ txReset (TYPE Thread* Self)
     Self->status = TX_ACTIVE;
 }
 
-void 
+void
 TxStart(TYPE Thread *Self)
-{    
+{
     txReset(Self);
 
     MEMBARLDLD();
-    
+
     Self->Starts++;
 
     do
@@ -135,7 +135,7 @@ TxStart(TYPE Thread *Self)
 // --------------------------------------------------------------
 
 // returns -1 if not coherent
-static inline long 
+static inline long
 ReadSetCoherent(TYPE Thread *Self)
 {
     long time;
@@ -168,7 +168,7 @@ ReadSetCoherent(TYPE Thread *Self)
     return time;
 }
 
-intptr_t 
+intptr_t
 TxLoad(TYPE Thread *Self, volatile TYPE_ACC intptr_t *Addr)
 {
     intptr_t Valu;
@@ -220,7 +220,7 @@ TxLoad(TYPE Thread *Self, volatile TYPE_ACC intptr_t *Addr)
 
 // --------------------------------------------------------------
 
-void 
+void
 TxStore(TYPE Thread *Self, volatile TYPE_ACC intptr_t *addr, intptr_t valu)
 {
     TYPE w_entry_t *w;
@@ -240,7 +240,7 @@ TxStore(TYPE Thread *Self, volatile TYPE_ACC intptr_t *addr, intptr_t valu)
 
 // --------------------------------------------------------------
 
-static inline void 
+static inline void
 txCommitReset(TYPE Thread *Self)
 {
     txReset(Self);
@@ -249,7 +249,7 @@ txCommitReset(TYPE Thread *Self)
     Self->status = TX_COMMITTED;
 }
 
-static inline void 
+static inline void
 WriteBackForward(TYPE Thread *Self)
 {
     TYPE w_entry_t *w;
@@ -261,7 +261,7 @@ WriteBackForward(TYPE Thread *Self)
     }
 }
 
-static inline long 
+static inline long
 TryFastUpdate(TYPE Thread *Self)
 {
 acquire:
@@ -269,9 +269,9 @@ acquire:
 
     if (*LOCK != Self->snapshot)
     {
-    	release(LOCK);
+        release(LOCK);
 
-    	long newSnap = ReadSetCoherent(Self);
+        long newSnap = ReadSetCoherent(Self);
         if (newSnap == -1)
         {
             return 0; // TxAbort(Self);
@@ -297,7 +297,7 @@ acquire:
     return 1; /* success */
 }
 
-int 
+int
 TxCommit(TYPE Thread *Self)
 {
     /* Fast-path: Optional optimization for pure-readers */
@@ -311,11 +311,11 @@ TxCommit(TYPE Thread *Self)
     if (TryFastUpdate(Self))
     {
         txCommitReset(Self);
-        
+
         return 1;
     }
 
     TxAbort(Self);
-    
+
     return 0;
 }

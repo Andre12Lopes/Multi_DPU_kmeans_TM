@@ -4,11 +4,11 @@
 #include <stdlib.h>
 
 #include <barrier.h>
-#include <perfcounter.h>
 #include <defs.h>
-#include <norec.h>
-#include <mram.h>
 #include <limits.h>
+#include <mram.h>
+#include <norec.h>
+#include <perfcounter.h>
 
 #include <thread_def.h>
 
@@ -26,10 +26,10 @@ BARRIER_INIT(kmeans_barr, NR_TASKLETS);
 
 // Input variables
 __mram float attributes[NUM_OBJECTS_PER_DPU * NUM_ATTRIBUTES];
-__host __dma_aligned float current_cluster_centers[N_CLUSTERS][NUM_ATTRIBUTES];
+__host __dma_aligned float current_cluster_centers[N_CLUSTERS * NUM_ATTRIBUTES];
 
 // Output variables
-__host float local_cluster_centers[N_CLUSTERS][NUM_ATTRIBUTES];
+__host float local_cluster_centers[N_CLUSTERS * NUM_ATTRIBUTES];
 __host uint32_t local_centers_len[N_CLUSTERS];
 __host uint64_t agregated_delta;
 
@@ -41,10 +41,13 @@ int membership[NUM_OBJECTS_PER_DPU];
 Thread __mram_noinit t_mram[NR_TASKLETS];
 #endif
 
-float euclidian_distance(float *pt1, float *pt2);
-int find_nearest_center(float *pt, float *centers);
+float
+euclidian_distance(float *pt1, float *pt2);
+int
+find_nearest_center(float *pt, float *centers);
 
-int main()
+int
+main()
 {
 #ifndef TX_IN_MRAM
     Thread tx;
@@ -67,7 +70,7 @@ int main()
 #endif
 
     // -------------------------------------------------------------------
-    
+
     if (MIN_N_CLUSTERS != MAX_N_CLUSTERS || USE_ZSCORE_TRANSFORM != 0)
     {
         assert(0);
@@ -75,12 +78,12 @@ int main()
 
     if (tid == 0)
     {
-        for (int i = 0; i < NUM_OBJECTS_PER_DPU; ++i) 
+        for (int i = 0; i < NUM_OBJECTS_PER_DPU; ++i)
         {
             membership[i] = -1;
         }
 
-        for (int i = 0; i < N_CLUSTERS; ++i) 
+        for (int i = 0; i < N_CLUSTERS; ++i)
         {
             local_centers_len[i] = 0;
         }
@@ -98,7 +101,7 @@ int main()
         index = find_nearest_center(tmp_point, current_cluster_centers);
         // printf(">> %d\n", index);
 
-        if (membership[i] != index) 
+        if (membership[i] != index)
         {
             delta_per_thread[tid] += 1.0;
         }
@@ -114,7 +117,7 @@ int main()
 #ifdef TX_IN_MRAM
         tmp_center_len = LOAD(&(t_mram[tid]), &local_centers_len[index]);
 #else
-        tmp_center_len = LOAD(&tx, &local_centers_len[index]);            
+        tmp_center_len = LOAD(&tx, &local_centers_len[index]);
 #endif
 
         tmp_center_len++;
@@ -127,23 +130,34 @@ int main()
         for (int j = 0; j < NUM_ATTRIBUTES; ++j)
         {
 #ifdef TX_IN_MRAM
-            intptr_t tmp = LOAD_LOOP(&(t_mram[tid]), &local_cluster_centers[index][j]);
+            intptr_t tmp = LOAD_LOOP(
+                &(t_mram[tid]), &local_cluster_centers[(index * NUM_ATTRIBUTES) + j]);
 #else
-            intptr_t tmp = LOAD_LOOP(&tx, &local_cluster_centers[index][j]);
+            intptr_t tmp =
+                LOAD_LOOP(&tx, &local_cluster_centers[(index * NUM_ATTRIBUTES) + j]);
 #endif
             tmp_center_attr = intp2double(tmp) + tmp_point[j];
-            
+
 #ifdef TX_IN_MRAM
-            STORE_LOOP(&(t_mram[tid]), &local_cluster_centers[index][j], double2intp(tmp_center_attr));
+            STORE_LOOP(&(t_mram[tid]),
+                       &local_cluster_centers[(index * NUM_ATTRIBUTES) + j],
+                       double2intp(tmp_center_attr));
 #else
-            STORE_LOOP(&tx, &local_cluster_centers[index][j], double2intp(tmp_center_attr));
+            STORE_LOOP(&tx, &local_cluster_centers[(index * NUM_ATTRIBUTES) + j],
+                       double2intp(tmp_center_attr));
 #endif
         }
 
 #ifdef TX_IN_MRAM
-        if (tx_mram[tid].status == 4) { continue; }
+        if (tx_mram[tid].status == 4)
+        {
+            continue;
+        }
 #else
-        if (tx.status == 4) { continue; }
+        if (tx.status == 4)
+        {
+            continue;
+        }
 #endif
 
 #ifdef TX_IN_MRAM
@@ -166,16 +180,15 @@ int main()
     }
     barrier_wait(&kmeans_barr);
 
-    printf("de\n");
-
     return 0;
 }
 
-float euclidian_distance(float *pt1, float *pt2)
+float
+euclidian_distance(float *pt1, float *pt2)
 {
     float ans = 0.0F;
 
-    for (int i = 0; i < NUM_ATTRIBUTES; ++i) 
+    for (int i = 0; i < NUM_ATTRIBUTES; ++i)
     {
         ans += (pt1[i] - pt2[i]) * (pt1[i] - pt2[i]);
     }
@@ -183,22 +196,24 @@ float euclidian_distance(float *pt1, float *pt2)
     return ans;
 }
 
-int find_nearest_center(float *pt, float *centers)
+int
+find_nearest_center(float *pt, float *centers)
 {
     int index = -1;
     float max_dist = 3.402823466e+38F; // TODO: might be a bug
 
     /* Find the cluster center id with min distance to pt */
-    for (int i = 0; i < N_CLUSTERS; ++i) 
+    for (int i = 0; i < N_CLUSTERS; ++i)
     {
         float dist;
-        dist = euclidian_distance(pt, &centers[i * NUM_ATTRIBUTES]);  /* no need square root */
+        /* no need square root */
+        dist = euclidian_distance(pt, &centers[i * NUM_ATTRIBUTES]);
 
-        if (dist < max_dist) 
+        if (dist < max_dist)
         {
             max_dist = dist;
             index = i;
-            if (max_dist == 0) 
+            if (max_dist == 0)
             {
                 break;
             }
