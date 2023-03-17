@@ -36,7 +36,7 @@ __host uint64_t agregated_delta;
 
 // Variables for local use
 float delta_per_thread[NR_TASKLETS];
-int membership[NUM_OBJECTS_PER_DPU];
+__mram uint64_t membership[NUM_OBJECTS_PER_DPU];
 
 #ifdef TX_IN_MRAM
 Thread __mram_noinit t_mram[NR_TASKLETS];
