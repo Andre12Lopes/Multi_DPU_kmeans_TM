@@ -4,7 +4,7 @@ include ../Makefile.common
 
 CC = dpu-upmem-dpurte-clang
 
-NR_TASKLETS = 1
+NR_TASKLETS = 11
 
 TARGET := kmeans
 

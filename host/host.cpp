@@ -42,7 +42,7 @@ main(int argc, char **argv)
     double total_time = 0;
     double comm_time = 0;
     double delta;
-    int loop;
+    int loop = 0;
 
     try
     {
@@ -52,11 +52,11 @@ main(int argc, char **argv)
 
         generate_initial_points(attributes);
 
+        auto start = std::chrono::steady_clock::now();
+
         system.copy("attributes", attributes);
 
         system.copy("init", init);
-
-        auto start = std::chrono::steady_clock::now();
 
         // Rabdomly pick initial centers
         pick_initial_centers(attributes, current_cluster_centers);
