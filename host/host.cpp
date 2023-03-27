@@ -58,6 +58,8 @@ main(int argc, char **argv)
 
         system.copy("init", init);
 
+        auto end_copy = std::chrono::steady_clock::now();
+
         // Rabdomly pick initial centers
         pick_initial_centers(attributes, current_cluster_centers);
 
@@ -144,10 +146,14 @@ main(int argc, char **argv)
         total_time +=
             std::chrono::duration_cast<std::chrono::microseconds>(end - start).count();
 
+        comm_time +=
+            std::chrono::duration_cast<std::chrono::microseconds>(end_copy - start).count();
+
         std::cout << "11" << "\t" 
                   << N_DPUS << "\t" 
                   << loop << "\t"
                   << N_DPUS * NUM_OBJECTS_PER_DPU * loop  << "\t" 
+                  << comm_time << "\t" 
                   << total_time << std::endl;
     }
     catch (const DpuError &e)
